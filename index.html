@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yuga Cycle Interpretations</title>
+<style>
+  :root { --bg:#fafaf7; --fg:#222; --muted:#666; --line:#ddd; --accent:#b5651d; --card:#fff; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#16161a; --fg:#e8e8e8; --muted:#9a9a9a; --line:#333; --accent:#e0a060; --card:#1f1f24; } }
+  * { box-sizing:border-box; }
+  body { margin:0; font:16px/1.55 system-ui, -apple-system, Segoe UI, sans-serif; background:var(--bg); color:var(--fg); }
+  header { padding:24px 20px 8px; max-width:1100px; margin:auto; }
+  h1 { margin:0 0 4px; font-size:1.7rem; }
+  .sub { color:var(--muted); margin:0; }
+  nav { position:sticky; top:0; background:var(--bg); border-bottom:1px solid var(--line); z-index:5; }
+  nav .in { max-width:1100px; margin:auto; display:flex; gap:4px; padding:0 20px; }
+  nav button { background:none; border:0; padding:12px 14px; cursor:pointer; color:var(--muted); font:inherit; border-bottom:2px solid transparent; }
+  nav button.on { color:var(--fg); border-color:var(--accent); }
+  main { max-width:1100px; margin:auto; padding:20px; }
+  section { display:none; } section.on { display:block; }
+  .controls { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:16px; }
+  input, select { font:inherit; padding:7px 10px; border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--fg); }
+  input { flex:1; min-width:200px; }
+  .count { color:var(--muted); align-self:center; font-size:.9rem; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:8px; margin-bottom:10px; }
+  .card > summary { padding:12px 16px; cursor:pointer; display:flex; gap:10px; align-items:center; list-style:none; }
+  .card > summary::-webkit-details-marker { display:none; }
+  .card > summary .t { font-weight:600; flex:1; }
+  .tag { font-size:.75rem; padding:2px 8px; border-radius:10px; border:1px solid var(--line); color:var(--muted); white-space:nowrap; }
+  .score { font-weight:700; font-variant-numeric:tabular-nums; min-width:46px; text-align:right; }
+  .body { padding:0 16px 16px; border-top:1px solid var(--line); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:8px 16px; margin:12px 0; font-size:.92rem; }
+  .grid b { display:block; color:var(--muted); font-weight:500; font-size:.78rem; text-transform:uppercase; letter-spacing:.03em; }
+  .body h4 { margin:14px 0 4px; font-size:.85rem; text-transform:uppercase; color:var(--muted); letter-spacing:.03em; }
+  .body ul { margin:0; padding-left:20px; }
+  .bar { height:6px; background:var(--line); border-radius:3px; overflow:hidden; width:80px; }
+  .bar i { display:block; height:100%; background:var(--accent); }
+  table { border-collapse:collapse; width:100%; font-size:.9rem; }
+  th, td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { cursor:pointer; user-select:none; position:sticky; top:45px; background:var(--bg); }
+  .tablewrap { overflow-x:auto; }
+  .md { max-width:820px; }
+  .md table { margin:12px 0; }
+  .md h1,.md h2,.md h3 { margin-top:1.4em; }
+  details.crit { margin:10px 0; }
+  details.crit > summary { cursor:pointer; font-weight:600; padding:8px 0; }
+  .note { color:var(--muted); font-size:.9rem; }
+  a { color:var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Yuga Cycle Timeline Interpretations</h1>
+  <p class="sub" id="meta"></p>
+</header>
+<nav><div class="in">
+  <button data-tab="browse" class="on">Browse</button>
+  <button data-tab="compare">Compare table</button>
+  <button data-tab="analysis">Critical analysis</button>
+</div></nav>
+<main>
+  <section id="browse" class="on">
+    <div class="controls">
+      <input id="q" placeholder="Search proponents, texts, claims…">
+      <select id="cat"><option value="">All categories</option></select>
+      <select id="sort">
+        <option value="plaus">Sort: plausibility ↓</option>
+        <option value="title">Sort: title</option>
+        <option value="cat">Sort: category</option>
+      </select>
+      <span class="count" id="count"></span>
+    </div>
+    <div id="list"></div>
+  </section>
+  <section id="compare">
+    <p class="note">Click a column header to sort. Click a row to open it in Browse.</p>
+    <div class="tablewrap"><table id="tbl"></table></div>
+  </section>
+  <section id="analysis">
+    <div class="md" id="verdict"></div>
+    <h2>Expert critiques by lens</h2>
+    <div id="crits" class="md"></div>
+  </section>
+</main>
+<script src="data.js"></script>
+<script>
+const D = window.YUGA, R = D.research;
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const li = a => (a||[]).length ? '<ul>' + a.map(x => `<li>${linkify(esc(x))}</li>`).join('') + '</ul>' : '<p class="note">—</p>';
+const linkify = s => s.replace(/(https?:\/\/[^\s)]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+
+$('#meta').textContent = `${R.length} interpretations researched by parallel AI agents · compiled ${D.generated}. AI-generated research — verify important claims against the cited sources.`;
+
+// tabs
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => show(b.dataset.tab));
+function show(t) {
+  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x.dataset.tab === t));
+  document.querySelectorAll('section').forEach(x => x.classList.toggle('on', x.id === t));
+}
+
+// browse
+[...new Set(R.map(r => r.category))].sort().forEach(c => $('#cat').insertAdjacentHTML('beforeend', `<option>${esc(c)}</option>`));
+function card(r) {
+  const d = r.durations || {};
+  return `<details class="card" id="c-${esc(r.id)}">
+    <summary><span class="t">${esc(r.title)}</span>${r.verification && r.verification !== 'Verified from sources' ? `<span class="tag" title="verification level">⚠ ${esc(r.verification)}</span>` : ''}<span class="tag">${esc(r.category)}</span>
+      <span class="bar" title="plausibility"><i style="width:${r.plausibility*10}%"></i></span><span class="score">${r.plausibility}/10</span></summary>
+    <div class="body">
+      <p>${esc(r.summary)}</p>
+      <div class="grid">
+        <div><b>Full cycle</b>${esc(r.totalCycleYears)}</div>
+        <div><b>Satya</b>${esc(d.satya)}</div><div><b>Treta</b>${esc(d.treta)}</div>
+        <div><b>Dvapara</b>${esc(d.dvapara)}</div><div><b>Kali</b>${esc(d.kali)}</div>
+        <div><b>Kali start</b>${esc(r.kaliStart)}</div><div><b>Kali end</b>${esc(r.kaliEnd)}</div>
+        <div><b>Where we are now</b>${esc(r.currentPosition)}</div>
+        <div><b>Originated</b>${esc(r.period)}</div>
+        <div><b>Proponents</b>${esc((r.proponents||[]).join(', '))}</div>
+      </div>
+      <h4>Primary sources</h4>${li(r.primarySources)}
+      <h4>Key claims</h4>${li(r.keyClaims)}
+      <h4>Evidence offered</h4>${li(r.evidence)}
+      <h4>Criticisms</h4>${li(r.criticisms)}
+      <h4>Plausibility rationale</h4><p>${esc(r.plausibilityReason)}</p>
+      <h4>References</h4>${li(r.references)}
+    </div></details>`;
+}
+function renderList() {
+  const q = $('#q').value.toLowerCase(), c = $('#cat').value, s = $('#sort').value;
+  let rows = R.filter(r => (!c || r.category === c) && (!q || JSON.stringify(r).toLowerCase().includes(q)));
+  rows.sort(s === 'title' ? (a,b) => a.title.localeCompare(b.title)
+          : s === 'cat' ? (a,b) => a.category.localeCompare(b.category) || b.plausibility - a.plausibility
+          : (a,b) => b.plausibility - a.plausibility);
+  $('#list').innerHTML = rows.map(card).join('');
+  $('#count').textContent = `${rows.length} shown`;
+}
+['q','cat','sort'].forEach(id => $('#'+id).addEventListener('input', renderList));
+renderList();
+
+// compare table
+const COLS = [['title','Interpretation'],['category','Category'],['totalCycleYears','Full cycle'],['kali','Kali length'],
+              ['kaliStart','Kali start'],['kaliEnd','Kali end'],['currentPosition','Now (2026)'],['plausibility','Plaus.']];
+let sortKey = 'plausibility', asc = false;
+const val = (r,k) => k === 'kali' ? (r.durations||{}).kali : r[k];
+function renderTable() {
+  const rows = [...R].sort((a,b) => { const x = val(a,sortKey), y = val(b,sortKey);
+    const c = typeof x === 'number' ? x - y : String(x).localeCompare(String(y)); return asc ? c : -c; });
+  $('#tbl').innerHTML = '<thead><tr>' + COLS.map(([k,l]) => `<th data-k="${k}">${l}${k===sortKey?(asc?' ▲':' ▼'):''}</th>`).join('') + '</tr></thead><tbody>' +
+    rows.map(r => `<tr data-id="${esc(r.id)}" style="cursor:pointer">` + COLS.map(([k]) => `<td>${esc(val(r,k))}</td>`).join('') + '</tr>').join('') + '</tbody>';
+  $('#tbl').querySelectorAll('th').forEach(th => th.onclick = () => { asc = sortKey === th.dataset.k ? !asc : false; sortKey = th.dataset.k; renderTable(); });
+  $('#tbl').querySelectorAll('tbody tr').forEach(tr => tr.onclick = () => {
+    show('browse'); $('#q').value = ''; $('#cat').value = ''; renderList();
+    const el = document.getElementById('c-' + tr.dataset.id); el.open = true; el.scrollIntoView({behavior:'smooth'});
+  });
+}
+renderTable();
+
+// deep link: index.html#<id> opens that entry
+function openHash() { const id = decodeURIComponent(location.hash.slice(1)); const el = id && document.getElementById('c-' + id);
+  if (el) { show('browse'); el.open = true; el.scrollIntoView(); } }
+window.addEventListener('hashchange', openHash); openHash();
+
+// tiny markdown renderer (headings, bold/italic, lists, tables, paragraphs)
+function md(src) {
+  const inl = s => esc(s).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/(^|[^*])\*([^*]+)\*/g,'$1<em>$2</em>').replace(/`([^`]+)`/g,'<code>$1</code>');
+  const L = src.split('\n'); let out = '', i = 0;
+  while (i < L.length) {
+    let l = L[i];
+    if (/^#{1,6}\s/.test(l)) { const n = l.match(/^#+/)[0].length; out += `<h${n+1}>${inl(l.replace(/^#+\s*/,''))}</h${n+1}>`; i++; }
+    else if (/^\s*\|/.test(l)) { const rows = []; while (i < L.length && /^\s*\|/.test(L[i])) rows.push(L[i++]);
+      const cells = r => r.trim().replace(/^\||\|$/g,'').split('|').map(c => c.trim());
+      out += '<table><thead><tr>' + cells(rows[0]).map(c => `<th>${inl(c)}</th>`).join('') + '</tr></thead><tbody>' +
+        rows.slice(2).map(r => '<tr>' + cells(r).map(c => `<td>${inl(c)}</td>`).join('') + '</tr>').join('') + '</tbody></table>'; }
+    else if (/^\s*([-*]|\d+\.)\s/.test(l)) { const ord = /^\s*\d+\./.test(l); const items = [];
+      while (i < L.length && /^\s*([-*]|\d+\.)\s/.test(L[i])) items.push(L[i++].replace(/^\s*([-*]|\d+\.)\s/,''));
+      out += (ord?'<ol>':'<ul>') + items.map(x => `<li>${inl(x)}</li>`).join('') + (ord?'</ol>':'</ul>'); }
+    else if (/^---+\s*$/.test(l)) { out += '<hr>'; i++; }
+    else if (!l.trim()) i++;
+    else { const p = []; while (i < L.length && L[i].trim() && !/^(#|\s*\||\s*[-*]\s|\s*\d+\.\s|---)/.test(L[i])) p.push(L[i++]); out += `<p>${inl(p.join(' '))}</p>`; }
+  }
+  return out;
+}
+$('#verdict').innerHTML = md(D.verdict || '_No verdict._') + (D.addendum ? '<hr>' + md(D.addendum) : '');
+const LENS = ['Textual & historical lens','Astronomical lens','Empirical / scientific lens'];
+$('#crits').innerHTML = (D.critiques||[]).map((c,i) => `<details class="crit"><summary>${LENS[i] || 'Critique '+(i+1)}</summary>${md(c)}</details>`).join('');
+</script>
+</body>
+</html>
