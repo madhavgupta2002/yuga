@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mahabharata dating</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .controls { display:flex; flex-wrap:wrap; gap:10px; margin:10px 0; align-items:center; }
+  input, select { font:inherit; padding:7px 10px; border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--fg); }
+  #q { flex:1; min-width:200px; }
+  #chips { display:flex; flex-wrap:wrap; gap:6px 14px; font-size:.85rem; margin:6px 0 12px; }
+  .chip { cursor:pointer; user-select:none; } .chip i { display:inline-block; width:10px; height:10px; border-radius:50%; margin:0 5px 0 4px; }
+  .panel { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:14px; margin-bottom:16px; overflow-x:auto; }
+  svg { width:100%; min-width:760px; height:auto; display:block; } svg text { fill:var(--fg); font-family:inherit; }
+  .row { cursor:pointer; } .row:hover rect:first-child { fill:rgba(128,128,128,.12); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:8px; margin-bottom:8px; }
+  .card > summary { padding:10px 14px; cursor:pointer; list-style:none; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .card > summary::-webkit-details-marker { display:none; }
+  .dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
+  .tag { font-size:.72rem; padding:1px 7px; border-radius:9px; border:1px solid var(--line); color:var(--muted); }
+  .score { margin-left:auto; font-weight:700; }
+  .body { padding:0 14px 12px; border-top:1px solid var(--line); }
+  .body h4 { margin:12px 0 4px; font-size:.8rem; text-transform:uppercase; color:var(--muted); }
+  table { border-collapse:collapse; width:100%; font-size:.9rem; } th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .md { max-width:860px; }
+</style>
+</head>
+<body>
+<div id="topnav"></div>
+<header>
+  <h1>Mahabharata: every proposed date</h1>
+  <p class="sub">When did the Kurukshetra war happen, and when was the text written? Proposals from tradition, colonial-era scholars, planetarium-software daters, archaeologists and YouTube, including the earlier sources these authors cite. Each dot is one proposal and is coloured by method. The shaded bands show the archaeological record. Click a row for details.</p>
+</header>
+<main>
+  <div class="controls">
+    <input id="q" placeholder="Search proposer, work, evidence…">
+    <select id="ev"><option value="">Event + text dates</option><option value="event">Event dates only</option><option value="text">Text-composition dates only</option></select>
+    <span class="note" id="count"></span>
+  </div>
+  <div id="chips"></div>
+  <div class="panel"><svg id="chart"></svg><div id="deep"></div><div id="undated"></div></div>
+  <div class="panel md" id="analysis"></div>
+  <div class="panel"><h2 style="margin-top:0">Citation lineage</h2><p class="note">Who builds on, adopts or refutes whom, limited to daters who are also in this dataset.</p><div id="lineage"></div></div>
+  <h2>All proposals</h2>
+  <div id="cards"></div>
+</main>
+<script src="nav.js"></script>
+<script src="epics-data.js"></script>
+<script>window.EPIC = 'Mahabharata';</script>
+<script src="epic.js"></script>
+</body>
+</html>
