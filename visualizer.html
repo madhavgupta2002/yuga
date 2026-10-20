@@ -37,6 +37,10 @@
   .zoom .zt { font-size:.82rem; color:var(--muted); }
   .scale { font-size:.75rem; color:var(--muted); }
   #cmp .lbl { font-size:12px; }
+  table.pb { border-collapse:collapse; width:100%; font-size:.85rem; margin:6px 0; }
+  table.pb th, table.pb td { text-align:left; vertical-align:top; padding:6px 8px; border-bottom:1px solid var(--line); }
+  table.pb td.y { color:var(--accent); }
+  table.pb td.m { color:var(--muted); font-style:italic; }
 </style>
 </head>
 <body>
@@ -122,12 +126,25 @@ const MODELS = [
     segs: [{ name: 'Kali (first 5,000 yrs)', c: 'K', len: 5000 }, { name: 'Light Age', c: 'S', len: 2500 }],
     facts: { 'Kali': '3101 BCE → 1899 CE', 'Light Age': '1899 → 4399 CE (Steiner)', 'Earlier ages': 'Not shown (Steiner\'s figures not verified)', 'Now (2026)': 'Light Age, year 127' },
     note: 'This is a sub-period of the long Kali, not a full cycle. It is probably where the modern "5,000-year Kali" memes come from.' },
-  { id: 'kali-ends-2025-viral', group: 'Prophetic / internet', name: '"Kali is ending now": Bhavishya Malika promoters and viral posts',
-    who: 'Bhavishya Malika (Odisha) preachers: Satya by ~2032. Instagram/YouTube "Kali ends 2025" posts',
+  { id: 'kali-ends-2025-viral', group: 'Prophetic / internet', name: '"Kali is ending now": a deadline that is always just ahead',
+    who: 'Bhavishya Malika (Odisha) promoters, whose claims rest mainly on Kashinath Mishra\'s Bhavishya Malika Puran volumes: Satya "by the threshold of 2032". Plus Instagram/YouTube "Kali ends 2025" posts',
     origin: -3102,
-    segs: [{ name: 'Kali (cut to ~5,000+ yrs)', c: 'K', len: 5134 }, { name: 'Satya begins (open-ended)', c: 'S', len: 600 }],
-    facts: { 'Kali': '3102 BCE → ~2025–2032 CE', 'Basis': 'Confuses years elapsed (5,126 in 2025) with total length, or uses prophetic readings', 'Now (2026)': 'At the claimed transition', 'Status': '2025 has passed; 2032 is pending' },
-    note: 'Not a full cycle. It is the classical Kali shortened to about 5,000 years.' },
+    segs: [{ name: 'Kali (cut to ~5,000+ yrs)', c: 'K', len: 5134 }, { name: 'Satya "by 2032" (open-ended)', c: 'S', len: 600 }],
+    facts: { 'Kali': '3102 BCE → "by 2032" (the scriptural figure is 428,898 CE)', 'How 5,000 yrs?': 'Shrinks the 432,000-yr Kali to ~5,000, or mistakes years elapsed (5,126 in 2025) for the total', 'Passed markers': 'Saturn into Pisces "countdown" (29 Mar 2025); "Kali ends 2025" posts; 12 Aug 2026 eclipse', 'Next test': '2032' },
+    note: 'Not a full cycle. The classical Kali is cut to about 5,000 years so the end always lands within the audience\'s lifetime.',
+    extra: `
+      <h3 style="margin:16px 0 6px;font-size:1rem">The failed-prophecy playbook: how this compares</h3>
+      <p class="note">Doomsday movements follow a well-studied pattern. Festinger et al., <i>When Prophecy Fails</i> (1956), found that when a dated prophecy fails, committed believers often believe <i>more</i> strongly and explain the failure away instead of dropping the belief. The table checks which of the usual techniques are documented for this claim.</p>
+      <table class="pb">
+        <tr><th>Technique</th><th>Bhavishya Malika promoters / viral posts</th><th>Documented elsewhere</th></tr>
+        <tr><td><b>Elastic deadline</b>: a window, not a date</td><td class="y">✔ "by the threshold of 2032"; World War 3 "6½ years" and "7 days of darkness" with no start date</td><td>Millerites' "about 1843"</td></tr>
+        <tr><td><b>Retrofitting</b>: fit news to the prophecy after it happens</td><td class="y">✔ 2020 Puri Jagannath flag fire; 22 Apr 2025 Pahalgam attack called the start of a "Shadow War"</td><td>Common to most prophecy promoters</td></tr>
+        <tr><td><b>Rewriting the text</b> so the end falls within the audience's lifetime</td><td class="y">✔ Kali shrunk from 432,000 to ~5,000 years</td><td>Yukteswar's 24,000-yr cycle; Steiner's 1899</td></tr>
+        <tr><td><b>"Countdown" markers</b> that pass without effect</td><td class="y">✔ Saturn→Pisces "definitive countdown" (29 Mar 2025); 12 Aug 2026 eclipse; viral "Kali ends 2025"</td><td>Kalki Bhagavan's 21 Dec 2012</td></tr>
+        <tr><td><b>Moving the date</b> after it passes</td><td class="m">Not yet documented. No archived "date X" followed by "date Y" was found</td><td>Millerites 1843 → Mar 1844 → Apr 1844 → 22 Oct 1844 · Camping 6 Sep 1994 → 29 Sep → 2 Oct 1994 → 21 May 2011 → 21 Oct 2011 · Brahma Kumaris 1976 → 1987–2008 ("this date has changed many times", 1983 critic)</td></tr>
+        <tr><td><b>Spiritualizing</b>: "it happened invisibly / inwardly"</td><td class="m">Not yet documented</td><td>Jehovah's Witnesses: 1914 became Christ's invisible rule · Camping: 21 May 2011 a "spiritual" judgment · Brahma Kumaris: destruction became "transformation" · Kalki Bhagavan: 2012 became a "collective awakening" over decades · Seekers: "our vigil saved the world" (1954)</td></tr>
+      </table>
+      <p class="note"><b>Verdict.</b> This claim uses the standard doomsday-prophecy playbook: an elastic deadline, rewritten scripture, retrofitted news and passed "countdown" markers. All of these make it very hard to disprove. A clean case of a date being named, failing and then being moved has not been documented for the Bhavishya Malika promoters, though it is well documented for the comparison groups. Web search was mostly blocked during this research, so this may change with better sources. The testable moment is <b>2032</b>. Watch whether it becomes a new date, or "it is happening subtly".</p>` },
   { id: 'iskcon', group: 'Scriptural', name: 'Gaudiya / ISKCON: 10,000-year golden age inside Kali',
     who: 'Brahma-vaivarta Purana passage as read by Gaudiya Vaishnavas. Chaitanya\'s sankirtana (~1500 CE)',
     origin: -3102 - 3888000,
@@ -239,7 +256,7 @@ function render() {
           <div class="main">${bar(m.segs, m.origin ?? null, nowRel(m), m.notToScale, 'seg')}</div>
           <div class="zoom"></div>
           <div class="facts">${Object.entries(m.facts).map(([k, v]) => `<div><b>${k}</b>${v}</div>`).join('')}</div>
-          <p class="note">${m.note}</p>
+          <p class="note">${m.note}</p>${m.extra || ''}
         </div>
       </div>
     </div>`).join('');
