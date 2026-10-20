@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yuga Cycle Visualizer</title>
+<style>
+  :root { --bg:#fafaf7; --fg:#222; --muted:#666; --line:#ddd; --accent:#c0392b; --card:#fff;
+          --S:#d4a017; --T:#9ea3ad; --D:#b87333; --K:#3b3b55; --X1:#5b8a72; --X2:#7a6fa8; --X3:#4f86a8; --X4:#a8665b; --gap:#e8e4da; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#16161a; --fg:#e8e8e8; --muted:#9a9a9a; --line:#333; --card:#1f1f24; --K:#6b6b95; --gap:#34322d; --accent:#ff6b5b; } }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.5 system-ui, -apple-system, Segoe UI, sans-serif; background:var(--bg); color:var(--fg); }
+  header, main { max-width:1100px; margin:auto; padding:20px; }
+  header { padding-bottom:0; }
+  h1 { margin:0 0 4px; font-size:1.6rem; }
+  .sub, .note { color:var(--muted); }
+  .note { font-size:.88rem; }
+  a { color:var(--accent); }
+  .legend { display:flex; flex-wrap:wrap; gap:14px; margin:12px 0; font-size:.88rem; }
+  .legend span::before { content:''; display:inline-block; width:12px; height:12px; border-radius:2px; margin-right:6px; vertical-align:-1px; background:var(--c); }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin:10px 0 18px; }
+  .chips button { font:inherit; font-size:.85rem; padding:4px 10px; border-radius:14px; border:1px solid var(--line); background:var(--card); color:var(--fg); cursor:pointer; }
+  .chips button.on { border-color:var(--fg); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:16px; margin-bottom:16px; }
+  .card h2 { margin:0; font-size:1.15rem; }
+  .who { color:var(--muted); font-size:.88rem; margin:2px 0 10px; }
+  .tag { font-size:.72rem; padding:1px 7px; border-radius:9px; border:1px solid var(--line); color:var(--muted); margin-left:6px; vertical-align:2px; font-weight:400; }
+  .row { display:grid; grid-template-columns:210px 1fr; gap:18px; align-items:start; }
+  @media (max-width:700px) { .row { grid-template-columns:1fr; } }
+  svg { display:block; width:100%; height:auto; overflow:visible; }
+  svg text { fill:var(--fg); font-family:inherit; }
+  .seg { cursor:pointer; stroke:var(--card); stroke-width:1; }
+  .seg:hover { opacity:.85; }
+  .facts { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:6px 14px; font-size:.88rem; margin-top:10px; }
+  .facts b { display:block; color:var(--muted); font-weight:500; font-size:.72rem; text-transform:uppercase; letter-spacing:.03em; }
+  .zoom { margin-top:6px; min-height:20px; }
+  .zoom .zt { font-size:.82rem; color:var(--muted); }
+  .scale { font-size:.75rem; color:var(--muted); }
+  #cmp .lbl { font-size:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Yuga Cycle Visualizer</h1>
+  <p class="sub">The distinct cycle structures only. Each one gets a <b>cycle wheel</b> and a <b>proportional timeline</b>. Click any segment to zoom into it. The red marker is <b>2026</b>. <a href="index.html">← Back to all 94 interpretations</a></p>
+  <div class="legend">
+    <span style="--c:var(--S)">Satya / Krita (gold)</span><span style="--c:var(--T)">Treta (silver)</span>
+    <span style="--c:var(--D)">Dvapara (copper)</span><span style="--c:var(--K)">Kali (iron)</span>
+    <span style="--c:var(--gap)">Sandhi / transition</span><span style="--c:var(--X1)">Other / non-yuga period</span>
+  </div>
+</header>
+<main>
+  <div class="card">
+    <h2>How long is "one cycle"? <span class="tag">log scale</span></h2>
+    <p class="note">The schools disagree on the length by a factor of about 60 trillion. The dashed line marks the real precession period (~25,772 years) for comparison.</p>
+    <svg id="cmp" viewBox="0 0 1000 330"></svg>
+  </div>
+  <div class="chips" id="chips"></div>
+  <div id="models"></div>
+</main>
+<script>
+const NOW = 2026;
+const fmtN = n => Math.round(n).toLocaleString('en-US');
+const fmtY = y => y < 0 ? fmtN(-y) + ' BCE' : fmtN(y) + ' CE';
+const fmtDur = n => n >= 1e12 ? (n/1e12).toFixed(n%1e12?2:0)+' trillion' : n >= 1e9 ? (n/1e9).toFixed(2).replace(/\.?0+$/,'')+' billion' : n >= 1e6 ? (n/1e6).toFixed(3).replace(/\.?0+$/,'')+' million' : fmtN(n);
+const C = { S:'var(--S)', T:'var(--T)', D:'var(--D)', K:'var(--K)', g:'var(--gap)', x1:'var(--X1)', x2:'var(--X2)', x3:'var(--X3)', x4:'var(--X4)' };
+
+// Classical 4:3:2:1 yuga with sandhya (dawn) and sandhyamsha (dusk) of 1/12 each
+const classical = (name, c, len, d) => ({ name, c, len, sub: [
+  { name: 'Sandhya (dawn)', c: 'g', len: len/12 }, { name: name + ' proper', c, len: len*10/12 }, { name: 'Sandhyamsha (dusk)', c: 'g', len: len/12 } ] });
+// Yukteswar yuga: 1/12 sandhi either side (e.g. Dvapara 200 + 2000 + 200)
+const yuk = (name, c, len, dir) => ({ name: `${dir} ${name}`, c, len, sub: [
+  { name: 'Sandhi', c: 'g', len: len/12 }, { name: `${name} proper`, c, len: len*10/12 }, { name: 'Sandhi', c: 'g', len: len/12 } ] });
+const MAHA = () => [classical('Satya', 'S', 1728000), classical('Treta', 'T', 1296000), classical('Dvapara', 'D', 864000), classical('Kali', 'K', 432000)];
+
+const MANUS = ['Svayambhuva','Svarochisha','Uttama','Tamasa','Raivata','Chakshusha','Vaivasvata (current)','Savarni','Daksha-savarni','Brahma-savarni','Dharma-savarni','Rudra-savarni','Deva-savarni','Indra-savarni'];
+const kalpaSegs = [{ name: 'Initial sandhi', c: 'g', len: 1728000 }];
+MANUS.forEach((m, i) => {
+  kalpaSegs.push({ name: `Manvantara ${i+1}: ${m}`, short: `M${i+1}`, c: i === 6 ? 'K' : (i % 2 ? 'x3' : 'x1'), len: 71 * 4320000,
+    sub: Array.from({ length: 71 }, (_, j) => ({ name: `Mahayuga ${j+1}${i===6&&j===27?' (current)':''}`, c: i===6&&j===27 ? 'K' : (j%2?'x2':'x3'), len: 4320000 })) });
+  kalpaSegs.push({ name: 'Sandhi', c: 'g', len: 1728000 });
+});
+const KALPA_NOW = 6*306720000 + 7*1728000 + 27*4320000 + 3888000 + 5127;   // ≈ 1.97 billion years since creation
+
+const MODELS = [
+  { id: 'puranic-classical', group: 'Scriptural', name: 'Classical Puranic Mahayuga',
+    who: 'Mahabharata, Manusmriti (with ×360), Vishnu/Bhagavata Puranas, Surya Siddhanta. Followed by ISKCON, Arya Samaj, most panchangas and kathakars',
+    origin: -3102 - 3888000, segs: MAHA(),
+    facts: { 'Full cycle': '4,320,000 yrs (12,000 divine yrs × 360)', 'Ratio': '4 : 3 : 2 : 1', 'Kali': '3102 BCE → 428,898 CE', 'Now (2026)': 'Kali year 5,127, about 1.2% of the way through' },
+    note: 'Click Kali to zoom. 2026 falls inside its first transition period (sandhya). As history, this would put Satya and Treta in the era of early pre-humans.' },
+  { id: 'kalpa', group: 'Scriptural', name: 'Kalpa: a Day of Brahma (nested cycles)',
+    who: 'Puranas, Surya Siddhanta. Arya Samaj uses it for its "creation 1.96 billion years ago" figure',
+    relNow: KALPA_NOW, segs: kalpaSegs,
+    facts: { 'Kalpa': '4.32 billion yrs = 1,000 mahayugas = 14 manvantaras × 71 + 15 sandhis', 'Brahma\'s life': '311.04 trillion yrs (100 Brahma-years)', 'Now': '51st Brahma-year, Shveta-varaha Kalpa, 7th Manvantara, 28th Mahayuga, Kali', 'Elapsed in this kalpa': '≈ ' + fmtN(KALPA_NOW) + ' yrs' },
+    note: 'Click Manvantara 7 to see its 71 mahayugas. Coincidence check: Earth is about 4.54 billion years old, close to one kalpa, but the kalpa elapsed (≈1.97 billion years) does not match Earth\'s age.' },
+  { id: 'aryabhata', group: 'Astronomical', name: 'Aryabhata: four equal quarters',
+    who: 'Aryabhatiya (499 CE). Rejected by Brahmagupta (628 CE) for breaking with scripture',
+    origin: -3102 - 3240000,
+    segs: [{ name: 'Krita quarter', c: 'S', len: 1080000 }, { name: 'Treta quarter', c: 'T', len: 1080000 }, { name: 'Dvapara quarter', c: 'D', len: 1080000 }, { name: 'Kali quarter', c: 'K', len: 1080000 }],
+    facts: { 'Full cycle': '4,320,000 yrs', 'Ratio': '1 : 1 : 1 : 1', 'Kali': '3102 BCE → 1,076,898 CE', 'Now (2026)': 'Kali year 5,127' },
+    note: 'Same total as the classical scheme, split differently. It shows the yuga lengths were computational choices.' },
+  { id: 'manusmriti', group: 'Scriptural', name: 'Early epic reading: 12,000 (human?) years',
+    who: 'Mahabharata / Manu numbers taken without the ×360 multiplier (González-Reimann and others argue this may be the older layer)',
+    segs: [classical('Krita', 'S', 4800), classical('Treta', 'T', 3600), classical('Dvapara', 'D', 2400), classical('Kali', 'K', 1200)],
+    facts: { 'Full cycle': '12,000 yrs', 'Ratio': '4 : 3 : 2 : 1 (sandhis 400/300/200/100)', 'Kali': 'Not dated in these texts', 'Now': 'Not placed' },
+    note: 'Not anchored to a calendar, so it has no "now" marker.' },
+  { id: 'yukteswar', group: 'Modern 24,000-yr lineage', name: 'Sri Yukteswar: 24,000-year ascending and descending cycle',
+    who: 'The Holy Science (1894). Yogananda / SRF, Kriyananda / Ananda (Selbie & Steinmetz, The Yugas), Cruttenden (binary star). Sadhguru is popularly linked to it (not verified in his own talks)',
+    origin: -11501,
+    segs: [yuk('Satya', 'S', 4800, '↓'), yuk('Treta', 'T', 3600, '↓'), yuk('Dvapara', 'D', 2400, '↓'), yuk('Kali', 'K', 1200, '↓'),
+           yuk('Kali', 'K', 1200, '↑'), yuk('Dvapara', 'D', 2400, '↑'), yuk('Treta', 'T', 3600, '↑'), yuk('Satya', 'S', 4800, '↑')],
+    facts: { 'Full cycle': '24,000 yrs (2 × 12,000)', 'Low point': '499 CE', 'Ascending Kali': '499 → 1699 CE', 'Now (2026)': 'Ascending Dvapara (1699–4099), inside the proper period since 1899' },
+    note: 'Assumes a precession rate of 54″/yr. The real rate is about 50.3″/yr (a ~25,772-year cycle). The wheel shows the "pendulum": down through the ages, then back up.' },
+  { id: 'guenon', group: 'Traditionalist', name: 'Guénon: 64,800-year Manvantara (precession-based)',
+    who: 'René Guénon, "Remarks on the Doctrine of Cosmic Cycles" (1938). Picked up by Georgel. Daniélou gives a Kali end of ~2442 CE in a related scheme',
+    segs: [{ name: 'Krita', c: 'S', len: 25920 }, { name: 'Treta', c: 'T', len: 19440 }, { name: 'Dvapara', c: 'D', len: 12960 }, { name: 'Kali', c: 'K', len: 6480 }],
+    facts: { 'Full cycle': '64,800 yrs (2.5 × a 25,920-yr precession "Great Year")', 'Ratio': '4 : 3 : 2 : 1', 'Kali': 'Not firmly dated by Guénon. Georgel suggested an end ~2030; Daniélou ~2442', 'Now': 'Late Kali (qualitative)' },
+    note: 'Our researcher could not confirm the 64,800 figure from sources. It comes from Guénon\'s 1938 essay and is shown here as a reconstruction. No "now" marker, because Guénon gave no firm epoch.' },
+  { id: 'steiner-1900', group: 'Western esoteric', name: 'Blavatsky / Steiner: 5,000-year "small Kali", then a Light Age',
+    who: 'Blavatsky, The Secret Doctrine (first 5,000 years of Kali end 1897–98). Steiner (Kali ended 1899, followed by a 2,500-year Light Age)',
+    origin: -3101,
+    segs: [{ name: 'Kali (first 5,000 yrs)', c: 'K', len: 5000 }, { name: 'Light Age', c: 'S', len: 2500 }],
+    facts: { 'Kali': '3101 BCE → 1899 CE', 'Light Age': '1899 → 4399 CE (Steiner)', 'Earlier ages': 'Not shown (Steiner\'s figures not verified)', 'Now (2026)': 'Light Age, year 127' },
+    note: 'This is a sub-period of the long Kali, not a full cycle. It is probably where the modern "5,000-year Kali" memes come from.' },
+  { id: 'kali-ends-2025-viral', group: 'Prophetic / internet', name: '"Kali is ending now": Bhavishya Malika promoters and viral posts',
+    who: 'Bhavishya Malika (Odisha) preachers: Satya by ~2032. Instagram/YouTube "Kali ends 2025" posts',
+    origin: -3102,
+    segs: [{ name: 'Kali (cut to ~5,000+ yrs)', c: 'K', len: 5134 }, { name: 'Satya begins (open-ended)', c: 'S', len: 600 }],
+    facts: { 'Kali': '3102 BCE → ~2025–2032 CE', 'Basis': 'Confuses years elapsed (5,126 in 2025) with total length, or uses prophetic readings', 'Now (2026)': 'At the claimed transition', 'Status': '2025 has passed; 2032 is pending' },
+    note: 'Not a full cycle. It is the classical Kali shortened to about 5,000 years.' },
+  { id: 'iskcon', group: 'Scriptural', name: 'Gaudiya / ISKCON: 10,000-year golden age inside Kali',
+    who: 'Brahma-vaivarta Purana passage as read by Gaudiya Vaishnavas. Chaitanya\'s sankirtana (~1500 CE)',
+    origin: -3102 - 3888000,
+    segs: MAHA().map(s => s.name === 'Kali' ? { ...s, bands: [{ from: 1486, to: 11486, label: '10,000-yr golden age (approx.)' }] } : s),
+    facts: { 'Full cycle': '4,320,000 yrs (classical)', 'Golden age': '~10,000 yrs from about Chaitanya (1486 CE). Start dates vary by teacher', 'Kali': '3102 BCE → 428,898 CE', 'Now (2026)': 'Early in the golden age within Kali' },
+    note: 'Zoom into Kali to see the golden-age band (thin, because it is about 2% of Kali).' },
+  { id: 'brahma-kumaris', group: 'Modern sect', name: 'Brahma Kumaris: 5,000-year World Drama',
+    who: 'Dada Lekhraj (1936). Prajapita Brahma Kumaris Ishwariya Vishwa Vidyalaya',
+    relNow: 4999,
+    segs: [{ name: 'Golden Age', c: 'S', len: 1250 }, { name: 'Silver Age', c: 'T', len: 1250 }, { name: 'Copper Age', c: 'D', len: 1250 }, { name: 'Iron Age', c: 'K', len: 1250 }, { name: 'Confluence Age', c: 'g', len: 60 }],
+    facts: { 'Full cycle': '5,000 yrs, repeating identically', 'Ratio': '1 : 1 : 1 : 1', 'Now': 'Confluence Age (end of Iron, before Golden)', 'Dated predictions': 'Destruction 1976; 1987–2008 (per Walliss 2002). Not fulfilled' },
+    note: 'No absolute calendar dates are published, so the timeline is relative. The confluence length is illustrative.' },
+  { id: 'jain', group: 'Comparative', name: 'Jain Kalachakra: descending and ascending half-cycles',
+    who: 'Jain canon. Avasarpiṇī (descending) + Utsarpiṇī (ascending), six aras each',
+    notToScale: true, relNowFrac: 4.5/12,
+    segs: [['Suṣama-suṣamā','S'],['Suṣamā','S'],['Suṣama-duṣamā','T'],['Duṣama-suṣamā','D'],['Duṣamā (now)','K'],['Duṣama-duṣamā','K'],
+           ['Duṣama-duṣamā ↑','K'],['Duṣamā ↑','K'],['Duṣama-suṣamā ↑','D'],['Suṣama-duṣamā ↑','T'],['Suṣamā ↑','S'],['Suṣama-suṣamā ↑','S']].map(([name, c]) => ({ name, c, len: 1 })),
+    facts: { 'Full cycle': '20 koṭākoṭi sāgaropama (beyond counting in years)', 'Aras 1–4': '4, 3, 2, 1 koṭākoṭi sāgara (–42,000 yrs)', '5th ara (now)': '21,000 yrs, ~523 BCE → ~20,478 CE', 'Now (2026)': 'About year 2,549 of the 5th ara' },
+    note: 'Drawn NOT to scale. The early aras are unimaginably longer than the last two.' },
+  { id: 'zoroastrian', group: 'Comparative', name: 'Zoroastrian 12,000-year world history',
+    who: 'Bundahishn (Pahlavi, 9th century CE)',
+    segs: [{ name: 'Spiritual creation (mēnōg)', c: 'x3', len: 3000 }, { name: 'Material creation (gētīg)', c: 'x1', len: 3000 }, { name: 'Mixture: Ahriman\'s attack', c: 'x4', len: 3000 }, { name: 'After Zoroaster → renovation', c: 'x2', len: 3000 }],
+    facts: { 'Full cycle': '12,000 yrs, linear (ends in Frashokereti)', 'Ratio': '1 : 1 : 1 : 1', 'Now': 'Final 3,000 years (not calendar-anchored)', 'Link to yugas': 'Same 12,000 total as the epic yuga, but not a decline-and-renewal cycle' },
+    note: 'Shown for comparison. It is a straight line to an end, not a repeating cycle.' },
+  { id: 'ayyavazhi-kali-yukam', group: 'Regional', name: 'Ayyavazhi: eight yugas ending in Dharma Yukam',
+    who: 'Akilattirattu Ammanai (Tamil Nadu / Kerala, 19th century), Ayya Vaikundar',
+    notToScale: true, relNowFrac: 6.5/8,
+    segs: ['Neetiya','Chathura','Nedia','Kretha','Thretha','Dvapara','Kali (now)','Dharma'].map((n, i) => ({ name: n + ' Yukam', c: i === 6 ? 'K' : i === 7 ? 'S' : ['x3','x1','x2','S','T','D'][i], len: 1 })),
+    facts: { 'Full cycle': 'Not given in years', 'Structure': '8 yugas, the last being Dharma Yukam (renewal)', 'Now': '7th, Kali Yukam', 'Dated?': 'No' },
+    note: 'Not to scale and not dated. Shows the order only.' },
+  { id: 'ananda-marga-sarkar', group: 'Modern reinterpretation', name: 'P.R. Sarkar: social cycle (yugas as class eras)',
+    who: 'Ananda Marga, PROUT (from the 1950s onward)',
+    notToScale: true, relNowFrac: 3.6/4,
+    segs: [{ name: 'Shudra (labour) era', c: 'x4', len: 1 }, { name: 'Kshatriya (warrior) era', c: 'D', len: 1 }, { name: 'Vipra (intellectual) era', c: 'T', len: 1 }, { name: 'Vaishya (acquisitive) era', c: 'S', len: 1 }],
+    facts: { 'Full cycle': 'Not fixed in years', 'Structure': 'Shudra → Kshatriya → Vipra → Vaishya → (revolution) → Shudra', 'Now': 'Late Vaishya (capitalist) era', 'Testable?': 'Interpretive, not chronological' },
+    note: 'Not to scale. A sociological reinterpretation, not a cosmic timeline.' },
+  { id: 'vedanga-jyotisha', group: 'Astronomical', name: 'Vedanga Jyotisha: the original 5-year "yuga"',
+    who: 'Lagadha, Vedanga Jyotisha (c. 1st millennium BCE)',
+    segs: ['Samvatsara','Parivatsara','Idavatsara','Anuvatsara','Idvatsara'].map((n, i) => ({ name: n, c: ['x1','x3','x2','x4','x1'][i], len: 1 })),
+    facts: { 'Full cycle': '5 yrs = 1,830 days = 62 synodic months (60 solar months + 2 leap months)', 'Purpose': 'Keeps lunar months in step with the solar year', 'Repeats': 'Continuously', 'Reality check': 'A real observational cycle' },
+    note: 'The only "yuga" that matches something you can observe in the sky. Repeats every 5 years.' },
+];
+
+// ---------- comparison chart (log scale) ----------
+(function () {
+  const rows = [['Vedanga Jyotisha yuga', 5], ['Brahma Kumaris World Drama', 5000], ['Zoroastrian world history', 12000], ['Epic 12,000-yr reading', 12000],
+    ['Yukteswar cycle', 24000], ['Guénon Manvantara', 64800], ['Classical Mahayuga', 4320000], ['Manvantara (71 mahayugas)', 306720000],
+    ['Kalpa (Day of Brahma)', 4320000000], ['Life of Brahma', 311040000000000]];
+  const L = 230, W = 1000 - L - 110, lo = 0, hi = 15, x = v => L + (Math.log10(v) - lo) / (hi - lo) * W;
+  let s = '';
+  for (let p = 0; p <= 15; p += 3) s += `<line x1="${x(10**p)}" x2="${x(10**p)}" y1="0" y2="${rows.length*30}" stroke="var(--line)"/><text class="lbl" x="${x(10**p)}" y="${rows.length*30+16}" text-anchor="middle" fill="var(--muted)">10${p?'<tspan dy="-5" font-size="9">'+p+'</tspan>':'⁰'}</text>`;
+  rows.forEach(([n, v], i) => {
+    const y = i * 30 + 6;
+    s += `<text class="lbl" x="${L-8}" y="${y+13}" text-anchor="end">${n}</text><rect x="${L}" y="${y}" width="${x(v)-L}" height="18" rx="2" fill="${v < 1e5 ? 'var(--D)' : 'var(--K)'}"/><text class="lbl" x="${x(v)+6}" y="${y+13}">${fmtDur(v)} yrs</text>`;
+  });
+  s += `<line x1="${x(25772)}" x2="${x(25772)}" y1="-4" y2="${rows.length*30}" stroke="var(--accent)" stroke-dasharray="4 3"/><text class="lbl" x="${x(25772)+4}" y="${rows.length*30+30}" fill="var(--accent)">precession ≈ 25,772</text>`;
+  document.getElementById('cmp').innerHTML = s;
+})();
+
+// ---------- per-model diagrams ----------
+const total = segs => segs.reduce((a, s) => a + s.len, 0);
+function nowRel(m) { return m.origin != null ? NOW - m.origin : m.relNow != null ? m.relNow : m.relNowFrac != null ? m.relNowFrac * total(m.segs) : null; }
+
+function wheel(m) {
+  const T = total(m.segs), R = 95, r = 58, cx = 105, cy = 105; let a0 = -Math.PI / 2, s = '';
+  const pt = (a, rad) => [cx + rad * Math.cos(a), cy + rad * Math.sin(a)];
+  m.segs.forEach((g, i) => {
+    const a1 = a0 + g.len / T * 2 * Math.PI, big = a1 - a0 > Math.PI ? 1 : 0;
+    const [x0, y0] = pt(a0, R), [x1, y1] = pt(a1, R), [x2, y2] = pt(a1, r), [x3, y3] = pt(a0, r);
+    s += `<path class="seg" data-i="${i}" fill="${C[g.c]}" d="M${x0},${y0} A${R},${R} 0 ${big} 1 ${x1},${y1} L${x2},${y2} A${r},${r} 0 ${big} 0 ${x3},${y3}Z"><title>${g.name}: ${fmtDur(g.len)}${m.notToScale ? '' : ' yrs'}</title></path>`;
+    a0 = a1;
+  });
+  const n = nowRel(m);
+  if (n != null) { const a = -Math.PI / 2 + n / T * 2 * Math.PI, [x1, y1] = pt(a, r - 6), [x2, y2] = pt(a, R + 8);
+    s += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--accent)" stroke-width="3"/><circle cx="${x2}" cy="${y2}" r="4" fill="var(--accent)"/>`; }
+  s += `<text x="${cx}" y="${cy-4}" text-anchor="middle" font-size="13" font-weight="600">${m.notToScale ? 'not to scale' : fmtDur(T)}</text><text x="${cx}" y="${cy+13}" text-anchor="middle" font-size="11" fill="var(--muted)">${m.notToScale ? 'order only' : 'years / cycle'}</text>`;
+  s += `<text x="${cx}" y="4" text-anchor="middle" font-size="10" fill="var(--muted)">▲ start</text>`;
+  return `<svg viewBox="0 -8 210 222">${s}</svg>`;
+}
+
+// linear bar: segs over [0, T]; base = absolute year of 0 (or null); nowR relative position
+function bar(segs, base, nowR, notToScale, cls) {
+  const T = total(segs), W = 1000, H = 34, xs = v => v / T * W; let s = '', acc = 0, lastLbl = -999;
+  const ticks = [];
+  segs.forEach((g, i) => {
+    const x = xs(acc), w = xs(g.len);
+    s += `<rect class="${cls}" data-i="${i}" x="${x}" y="0" width="${Math.max(w, .5)}" height="${H}" fill="${C[g.c]}"><title>${g.name}: ${fmtDur(g.len)}${notToScale ? '' : ' yrs'}${base != null ? ` (${fmtY(base+acc)} → ${fmtY(base+acc+g.len)})` : ''}</title></rect>`;
+    if (w > (g.short ? 24 : 70)) s += `<text x="${x + w/2}" y="${H/2+4}" text-anchor="middle" font-size="12" fill="#fff" pointer-events="none">${(g.short && g.name.length * 6.5 >= w) ? g.short : g.name.length * 6.5 < w ? g.name : g.name.slice(0, Math.floor(w/7)) + '…'}</text>`;
+    ticks.push(acc); acc += g.len;
+  });
+  ticks.push(T);
+  if (!notToScale) ticks.forEach(t => { const x = xs(t); if (x - lastLbl < 85 && t !== T) return; if (t === T && x - lastLbl < 85) return; lastLbl = x;
+    s += `<text x="${x}" y="${H+15}" font-size="11" text-anchor="${t === 0 ? 'start' : t === T ? 'end' : 'middle'}" fill="var(--muted)">${base != null ? fmtY(base + t) : (t ? '+' + fmtDur(t) : '0')}</text>`; });
+  if (nowR != null && nowR >= 0 && nowR <= T) { const x = xs(nowR);
+    s += `<line x1="${x}" x2="${x}" y1="-8" y2="${H+2}" stroke="var(--accent)" stroke-width="3"/><text x="${Math.min(Math.max(x, 20), 980)}" y="-12" font-size="11" text-anchor="middle" fill="var(--accent)" font-weight="600">2026</text>`; }
+  return `<svg viewBox="0 -22 1000 ${H+42}">${s}</svg>`;
+}
+
+function render() {
+  const sel = document.querySelector('#chips .on')?.dataset.g || '';
+  document.getElementById('models').innerHTML = MODELS.filter(m => !sel || m.group === sel).map(m => `
+    <div class="card" id="m-${m.id}">
+      <h2>${m.name}<span class="tag">${m.group}</span>${m.notToScale ? '<span class="tag">not to scale</span>' : ''}</h2>
+      <div class="who">${m.who} · <a href="index.html#${m.id}">research entry</a></div>
+      <div class="row">
+        <div>${wheel(m)}</div>
+        <div>
+          <div class="scale">Timeline${m.origin != null ? '' : ' (relative years from cycle start)'}. Click a segment to zoom in:</div>
+          <div class="main">${bar(m.segs, m.origin ?? null, nowRel(m), m.notToScale, 'seg')}</div>
+          <div class="zoom"></div>
+          <div class="facts">${Object.entries(m.facts).map(([k, v]) => `<div><b>${k}</b>${v}</div>`).join('')}</div>
+          <p class="note">${m.note}</p>
+        </div>
+      </div>
+    </div>`).join('');
+  MODELS.forEach(m => {
+    const card = document.getElementById('m-' + m.id); if (!card) return;
+    card.querySelectorAll('.seg').forEach(el => el.addEventListener('click', () => zoom(m, card, +el.dataset.i)));
+  });
+}
+
+function zoom(m, card, i) {
+  const z = card.querySelector('.zoom'), g = m.segs[i];
+  if (m.notToScale) { z.innerHTML = `<div class="zt">🔍 <b>${g.name}</b>. Durations are not to scale in this tradition.</div>`; return; }
+  const off = total(m.segs.slice(0, i)), base = m.origin != null ? m.origin + off : null, n = nowRel(m), nr = n != null ? n - off : null;
+  const parts = g.sub || [{ ...g }];
+  let html = `<div class="zt">🔍 <b>${g.name}</b>: ${fmtDur(g.len)} yrs${base != null ? ` (${fmtY(base)} → ${fmtY(base + g.len)})` : ''}. <a href="#" class="close">close</a></div>` +
+    bar(parts, base ?? null, nr, false, 'zseg');
+  if (g.bands && base != null) {
+    html += g.bands.map(b => { const x0 = (b.from - base) / g.len * 1000, w = Math.max((b.to - b.from) / g.len * 1000, 3);
+      return `<svg viewBox="0 0 1000 22"><rect x="${x0}" y="2" width="${w}" height="10" fill="var(--S)"/><text x="${x0 + w + 6}" y="11" font-size="11">${b.label}: ${fmtY(b.from)} → ${fmtY(b.to)}</text></svg>`; }).join('');
+  }
+  z.innerHTML = html;
+  z.querySelector('.close').onclick = e => { e.preventDefault(); z.innerHTML = ''; };
+  // second-level zoom (e.g. Kalpa → Manvantara → Mahayuga)
+  z.querySelectorAll('.zseg').forEach(el => el.addEventListener('click', () => {
+    const sg = parts[+el.dataset.i]; if (!sg.sub && sg.len !== 4320000) return;
+    const off2 = total(parts.slice(0, +el.dataset.i)), n2 = nr != null ? nr - off2 : null;
+    const inner = sg.sub || MAHA();
+    z.insertAdjacentHTML('beforeend', `<div class="zt">🔍🔍 <b>${sg.name}</b>: ${fmtDur(sg.len)} yrs</div>` + bar(inner, null, n2, false, 'z2'));
+  }));
+}
+
+const groups = [...new Set(MODELS.map(m => m.group))];
+document.getElementById('chips').innerHTML = `<button class="on" data-g="">All (${MODELS.length})</button>` + groups.map(g => `<button data-g="${g}">${g}</button>`).join('');
+document.querySelectorAll('#chips button').forEach(b => b.onclick = () => { document.querySelectorAll('#chips button').forEach(x => x.classList.remove('on')); b.classList.add('on'); render(); });
+render();
+</script>
+</body>
+</html>
