@@ -62,6 +62,10 @@
 <main>
   <section id="browse" class="on">
     <div class="controls">
+      <select id="view">
+        <option value="fam">Consolidated families</option>
+        <option value="raw">All raw entries</option>
+      </select>
       <input id="q" placeholder="Search proponents, texts, claims…">
       <select id="cat"><option value="">All categories</option></select>
       <select id="sort">
@@ -85,13 +89,14 @@
 </main>
 <script src="data.js"></script>
 <script>
-const D = window.YUGA, R = D.research;
+const D = window.YUGA, R = D.research, F = D.families || [], TAGS = D.criticismTags || {};
+const src = () => (F.length && $('#view').value === 'fam') ? F : R;
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const li = a => (a||[]).length ? '<ul>' + a.map(x => `<li>${linkify(esc(x))}</li>`).join('') + '</ul>' : '<p class="note">—</p>';
 const linkify = s => s.replace(/(https?:\/\/[^\s)]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
 
-$('#meta').textContent = `${R.length} interpretations researched by parallel AI agents · compiled ${D.generated}. AI-generated research — verify important claims against the cited sources.`;
+$('#meta').textContent = `${R.length} interpretations${F.length ? ` grouped into ${F.length} families` : ''} researched by parallel AI agents · compiled ${D.generated}. AI-generated research — verify important claims against the cited sources.`;
 
 // tabs
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => show(b.dataset.tab));
@@ -126,16 +131,43 @@ function card(r) {
       <h4>References</h4>${li(r.references)}
     </div></details>`;
 }
+if (!F.length) $('#view').style.display = 'none';
+function familyCard(f) {
+  const d = f.durations || {};
+  return `<details class="card" id="c-${esc(f.id)}">
+    <summary><span class="t">${esc(f.title)}</span><span class="tag">${f.members.length} entries</span>${f.verification && !/Verified|Web-checked/.test(f.verification) ? `<span class="tag">⚠ ${esc(f.verification)}</span>` : ''}<span class="tag">${esc(f.category)}</span>
+      <span class="bar" title="plausibility"><i style="width:${f.plausibility*10}%"></i></span><span class="score" title="member range ${esc(f.plausibilityRange)}">${f.plausibility}/10</span></summary>
+    <div class="body">
+      <p>${esc(f.summary)}</p>
+      <div class="grid">
+        <div><b>Full cycle</b>${esc(f.totalCycleYears)}</div>
+        <div><b>Satya</b>${esc(d.satya)}</div><div><b>Treta</b>${esc(d.treta)}</div>
+        <div><b>Dvapara</b>${esc(d.dvapara)}</div><div><b>Kali</b>${esc(d.kali)}</div>
+        <div><b>Kali start</b>${esc(f.kaliStart)}</div><div><b>Kali end</b>${esc(f.kaliEnd)}</div>
+        <div><b>Where we are now</b>${esc(f.currentPosition)}</div>
+        <div><b>Plausibility range</b>${esc(f.plausibilityRange)}</div>
+      </div>
+      <h4>Variants within this family</h4><ul>${(f.variants||[]).map(v => `<li><a href="#${esc(v.memberId)}">${esc(v.title)}</a>: ${esc(v.distinctive)}</li>`).join('')}</ul>
+      <h4>Key claims</h4>${li(f.keyClaims)}
+      <h4>Evidence offered</h4>${li(f.evidence)}
+      <h4>Criticisms</h4>
+      <div>${(f.commonCriticisms||[]).map(t => `<span class="tag" title="${esc(TAGS[t])}" style="margin:0 4px 4px 0;display:inline-block">${esc(t)}</span>`).join('')}</div>
+      ${li(f.specificCriticisms)}
+      <h4>Plausibility rationale</h4><p>${esc(f.plausibilityReason)}</p>
+      <h4>References</h4>${li(f.references)}
+    </div></details>`;
+}
 function renderList() {
-  const q = $('#q').value.toLowerCase(), c = $('#cat').value, s = $('#sort').value;
-  let rows = R.filter(r => (!c || r.category === c) && (!q || JSON.stringify(r).toLowerCase().includes(q)));
+  const q = $('#q').value.toLowerCase(), c = $('#cat').value, s = $('#sort').value, fam = src() === F;
+  let rows = src().filter(r => (!c || r.category === c) && (!q || JSON.stringify(r).toLowerCase().includes(q)));
   rows.sort(s === 'title' ? (a,b) => a.title.localeCompare(b.title)
           : s === 'cat' ? (a,b) => a.category.localeCompare(b.category) || b.plausibility - a.plausibility
           : (a,b) => b.plausibility - a.plausibility);
-  $('#list').innerHTML = rows.map(card).join('');
+  $('#list').innerHTML = rows.map(fam ? familyCard : card).join('');
   $('#count').textContent = `${rows.length} shown`;
 }
 ['q','cat','sort'].forEach(id => $('#'+id).addEventListener('input', renderList));
+$('#view').addEventListener('input', () => { renderList(); renderTable(); });
 renderList();
 
 // compare table
@@ -144,7 +176,7 @@ const COLS = [['title','Interpretation'],['category','Category'],['totalCycleYea
 let sortKey = 'plausibility', asc = false;
 const val = (r,k) => k === 'kali' ? (r.durations||{}).kali : r[k];
 function renderTable() {
-  const rows = [...R].sort((a,b) => { const x = val(a,sortKey), y = val(b,sortKey);
+  const rows = [...src()].sort((a,b) => { const x = val(a,sortKey), y = val(b,sortKey);
     const c = typeof x === 'number' ? x - y : String(x).localeCompare(String(y)); return asc ? c : -c; });
   $('#tbl').innerHTML = '<thead><tr>' + COLS.map(([k,l]) => `<th data-k="${k}">${l}${k===sortKey?(asc?' ▲':' ▼'):''}</th>`).join('') + '</tr></thead><tbody>' +
     rows.map(r => `<tr data-id="${esc(r.id)}" style="cursor:pointer">` + COLS.map(([k]) => `<td>${esc(val(r,k))}</td>`).join('') + '</tr>').join('') + '</tbody>';
@@ -157,7 +189,9 @@ function renderTable() {
 renderTable();
 
 // deep link: index.html#<id> opens that entry
-function openHash() { const id = decodeURIComponent(location.hash.slice(1)); const el = id && document.getElementById('c-' + id);
+function openHash() { const id = decodeURIComponent(location.hash.slice(1));
+  if (id && F.length && !F.some(f => f.id === id) && R.some(r => r.id === id) && $('#view').value !== 'raw') { $('#view').value = 'raw'; $('#q').value = ''; $('#cat').value = ''; renderList(); renderTable(); }
+  const el = id && document.getElementById('c-' + id);
   if (el) { show('browse'); el.open = true; el.scrollIntoView(); } }
 window.addEventListener('hashchange', openHash); openHash();
 
@@ -181,6 +215,8 @@ function md(src) {
   }
   return out;
 }
+if (Object.keys(TAGS).length) $('#crits').insertAdjacentHTML('afterend', '<h2>Shared criticisms</h2><p class="note">Criticisms that recur across many interpretations, listed once each.</p><table><thead><tr><th>Tag</th><th>Criticism</th><th>Applies to</th></tr></thead><tbody>' +
+  Object.entries(TAGS).map(([t, txt]) => `<tr><td><code>${esc(t)}</code></td><td>${esc(txt)}</td><td>${F.filter(f => (f.commonCriticisms||[]).includes(t)).map(f => esc(f.title)).join(', ')}</td></tr>`).join('') + '</tbody></table>');
 $('#verdict').innerHTML = md(D.verdict || '_No verdict._') + (D.addendum ? '<hr>' + md(D.addendum) : '');
 const LENS = ['Textual & historical lens','Astronomical lens','Empirical / scientific lens'];
 $('#crits').innerHTML = (D.critiques||[]).map((c,i) => `<details class="crit"><summary>${LENS[i] || 'Critique '+(i+1)}</summary>${md(c)}</details>`).join('');
